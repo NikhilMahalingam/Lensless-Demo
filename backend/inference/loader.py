@@ -1,24 +1,19 @@
 import sys
 from pathlib import Path
-from typing import Dict
 
 import torch
 
-BASE_DIR = Path(__file__).resolve().parent.parent          # backend/
-INFERENCE_DIR = Path(__file__).resolve().parent            # backend/inference/
-MODELS_DIR = BASE_DIR / "models"                           # backend/models/
-WEIGHTS_DIR = INFERENCE_DIR / "weights"
+BASE_DIR = Path(__file__).resolve().parent.parent
+MODELS_DIR = BASE_DIR / "models"
+WEIGHTS_DIR = Path(__file__).resolve().parent / "weights"
 
-# Make backend/models importable as top-level modules like:
-# import admm_model, import ensemble, import unet
 if str(MODELS_DIR) not in sys.path:
     sys.path.insert(0, str(MODELS_DIR))
 
-# If utils.py is in backend/, make that importable too
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-_MODEL_CACHE: Dict[str, torch.nn.Module] = {}
+_MODEL_CACHE = None
 
 MODEL_FILES = {
     "admm_converged": "model_admm_converged.pt",
@@ -39,38 +34,100 @@ DISPLAY_NAMES = {
 }
 
 
-def _patch_loaded_model(model, device_str: str):
-    if hasattr(model, "cuda_device"):
-        model.cuda_device = device_str
+def load_all_models(device: torch.device):
+    global _MODEL_CACHE
 
-    if hasattr(model, "admm_model") and hasattr(model.admm_model, "cuda_device"):
-        model.admm_model.cuda_device = device_str
+    if _MODEL_CACHE is not None:
+        return _MODEL_CACHE
 
-    model.eval()
-    return model
+    my_device = str(device)
+
+    le_admm_u = torch.load(
+        WEIGHTS_DIR / "model_le_admm_u.pt",
+        map_location=my_device,
+        weights_only=False,
+    )
+    le_admm_u.admm_model.cuda_device = my_device
+    le_admm_u.eval()
+
+    unet = torch.load(
+        WEIGHTS_DIR / "model_unet.pt",
+        map_location=my_device,
+        weights_only=False,
+    )
+    unet.eval()
+
+    le_admm_s = torch.load(
+        WEIGHTS_DIR / "model_le_admm_s.pt",
+        map_location=my_device,
+        weights_only=False,
+    )
+    le_admm_s.cuda_device = my_device
+    le_admm_s.eval()
+
+    le_admm = torch.load(
+        WEIGHTS_DIR / "model_le_admm.pt",
+        map_location=my_device,
+        weights_only=False,
+    )
+    le_admm.cuda_device = my_device
+    le_admm.eval()
+
+    admm_auto = torch.load(
+        WEIGHTS_DIR / "model_admm_converged.pt",
+        map_location=my_device,
+        weights_only=False,
+    )
+    admm_auto.cuda_device = my_device
+    admm_auto.eval()
+
+    admm_auto5 = torch.load(
+        WEIGHTS_DIR / "model_admm_bounded.pt",
+        map_location=my_device,
+        weights_only=False,
+    )
+    admm_auto5.cuda_device = my_device
+    admm_auto5.eval()
+
+    _MODEL_CACHE = {
+        "admm_converged": admm_auto,
+        "admm_bounded": admm_auto5,
+        "le_admm": le_admm,
+        "le_admm_s": le_admm_s,
+        "le_admm_u": le_admm_u,
+        "unet": unet,
+    }
+
+    return _MODEL_CACHE
 
 
 def load_model(model_name: str, device: torch.device):
-    if model_name in _MODEL_CACHE:
-        return _MODEL_CACHE[model_name]
-
     if model_name not in MODEL_FILES:
         raise ValueError(f"Unknown model: {model_name}")
 
-    weights_path = WEIGHTS_DIR / MODEL_FILES[model_name]
-    if not weights_path.exists():
-        raise FileNotFoundError(f"Missing weights file: {weights_path}")
+    my_device = str(device)
 
-    device_str = str(device)
+    if model_name == "le_admm_u":
+        model = torch.load(WEIGHTS_DIR / "model_le_admm_u.pt", map_location=my_device, weights_only=False)
+        model.admm_model.cuda_device = my_device
+    elif model_name == "unet":
+        model = torch.load(WEIGHTS_DIR / "model_unet.pt", map_location=my_device, weights_only=False)
+    elif model_name == "le_admm_s":
+        model = torch.load(WEIGHTS_DIR / "model_le_admm_s.pt", map_location=my_device, weights_only=False)
+        model.cuda_device = my_device
+    elif model_name == "le_admm":
+        model = torch.load(WEIGHTS_DIR / "model_le_admm.pt", map_location=my_device, weights_only=False)
+        model.cuda_device = my_device
+    elif model_name == "admm_converged":
+        model = torch.load(WEIGHTS_DIR / "model_admm_converged.pt", map_location=my_device, weights_only=False)
+        model.cuda_device = my_device
+    elif model_name == "admm_bounded":
+        model = torch.load(WEIGHTS_DIR / "model_admm_bounded.pt", map_location=my_device, weights_only=False)
+        model.cuda_device = my_device
+    else:
+        raise ValueError(f"Unknown model: {model_name}")
 
-    model = torch.load(
-        weights_path,
-        map_location=device_str,
-        weights_only=False,
-    )
-
-    model = _patch_loaded_model(model, device_str)
-    _MODEL_CACHE[model_name] = model
+    model.eval()
     return model
 
 

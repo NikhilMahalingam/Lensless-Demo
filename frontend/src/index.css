@@ -107,3 +107,10 @@ button:disabled {
   color: #374151;
   font-size: 14px;
 }
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}

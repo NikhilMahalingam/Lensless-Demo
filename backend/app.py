@@ -48,6 +48,8 @@ async def reconstruct(
     lensless_file: UploadFile = File(...),
     model_name: str = Form(...),
     lensed_file: Optional[UploadFile] = File(None),
+    apply_denoise: bool = Form(False),
+    tv_weight: float = Form(0.08),
 ):
     lensless_suffix = Path(lensless_file.filename).suffix or ".npy"
     lensless_temp_path = UPLOAD_DIR / f"{uuid.uuid4().hex}{lensless_suffix}"
@@ -68,6 +70,8 @@ async def reconstruct(
             lensless_file_path=str(lensless_temp_path),
             model_name=model_name,
             lensed_file_path=str(lensed_temp_path) if lensed_temp_path else None,
+            apply_denoise=apply_denoise,
+            tv_weight=tv_weight,
         )
 
         response["lensless_preview_url"] = f"/outputs/{response['lensless_preview_file']}"

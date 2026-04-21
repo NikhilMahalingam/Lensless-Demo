@@ -1,5 +1,6 @@
 from pathlib import Path
 import uuid
+from skimage.restoration import denoise_tv_chambolle
 
 import numpy as np
 from PIL import Image
@@ -56,3 +57,22 @@ def save_preview_from_chw(array_chw: np.ndarray) -> str:
 def save_chw_output(array_chw: np.ndarray) -> str:
     hwc = preplot_repo_style(array_chw)
     return save_hwc_png(to_uint8(hwc))
+
+def apply_tv_denoising_chw(array_chw: np.ndarray, weight: float = 0.08) -> np.ndarray:
+    """
+    Apply total variation denoising to a CHW image.
+    Expects float image data. Returns CHW.
+    """
+    if array_chw.ndim != 3:
+        raise ValueError(f"Expected CHW array, got shape {array_chw.shape}")
+
+    hwc = np.transpose(array_chw, (1, 2, 0)).astype(np.float32)
+
+    # TV denoising expects image-like float data
+    denoised_hwc = denoise_tv_chambolle(
+        hwc,
+        weight=weight,
+        channel_axis=-1,
+    ).astype(np.float32)
+
+    return np.transpose(denoised_hwc, (2, 0, 1))

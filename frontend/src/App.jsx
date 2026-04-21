@@ -7,6 +7,8 @@ export default function App() {
   const [selectedModel, setSelectedModel] = useState("");
   const [lenslessFile, setLenslessFile] = useState(null);
   const [lensedFile, setLensedFile] = useState(null);
+  const [applyDenoise, setApplyDenoise] = useState(false);
+  const [tvWeight, setTvWeight] = useState("0.08");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -52,6 +54,9 @@ export default function App() {
       formData.append("lensed_file", lensedFile);
     }
 
+    formData.append("apply_denoise", applyDenoise ? "true" : "false");
+    formData.append("tv_weight", tvWeight);
+
     try {
       setLoading(true);
 
@@ -81,7 +86,7 @@ export default function App() {
         <h1>Lensless Reconstruction</h1>
         <p className="subtext">
           Upload a lensless .npy file, optionally add a lensed reference image,
-          and compare reconstructions.
+          choose a reconstruction model, and optionally apply TV denoising.
         </p>
 
         <form onSubmit={handleSubmit} className="form">
@@ -117,6 +122,28 @@ export default function App() {
             />
           </label>
 
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={applyDenoise}
+              onChange={(e) => setApplyDenoise(e.target.checked)}
+            />
+            Apply total variation denoising
+          </label>
+
+          {applyDenoise && (
+            <label>
+              TV weight
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={tvWeight}
+                onChange={(e) => setTvWeight(e.target.value)}
+              />
+            </label>
+          )}
+
           <button type="submit" disabled={loading}>
             {loading ? "Running..." : "Run reconstruction"}
           </button>
@@ -127,6 +154,7 @@ export default function App() {
         {result && (
           <div className="result">
             <h2>Inputs and outputs</h2>
+
             <div className="image-grid">
               <div className="image-card">
                 <h3>Lensless input</h3>
@@ -165,6 +193,12 @@ export default function App() {
                       <strong>Input shape:</strong>{" "}
                       {JSON.stringify(result.input_shape)}
                     </div>
+                    <div>
+                      <strong>Denoising:</strong>{" "}
+                      {result.result.denoised
+                        ? `TV (${result.result.tv_weight})`
+                        : "None"}
+                    </div>
                   </div>
                 </div>
               )}
@@ -182,6 +216,10 @@ export default function App() {
                       <div>
                         <strong>Inference time:</strong>{" "}
                         {item.inference_time_ms} ms
+                      </div>
+                      <div>
+                        <strong>Denoising:</strong>{" "}
+                        {item.denoised ? `TV (${item.tv_weight})` : "None"}
                       </div>
                     </div>
                   </div>
