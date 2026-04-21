@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Frontend
+node_modules/
+dist/
+
+# Local outputs/uploads
+backend/inference/outputs/
+backend/tmp_uploads/
+
+# Model weights
+backend/inference/weights/
+*.pt
+*.pth
