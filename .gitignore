@@ -15,3 +15,6 @@ backend/tmp_uploads/
 backend/inference/weights/
 *.pt
 *.pth
+
+backend/test_data/
+*.npy
